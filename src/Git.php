@@ -2,7 +2,7 @@
 
 class Git {
 
-        public static $git_path = '/usr/local/bin/git';
+        public static $git_path = '/usr/bin/git';
 
         protected $_repo_path;
 

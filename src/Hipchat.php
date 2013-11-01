@@ -2,6 +2,18 @@
 
 class Hipchat {
 	
+  const DEFAULT_TARGET = 'https://api.hipchat.com';
+
+  const STATUS_BAD_RESPONSE = -1; // Not an HTTP response code
+  const STATUS_OK = 200;
+  const STATUS_BAD_REQUEST = 400;
+  const STATUS_UNAUTHORIZED = 401;
+  const STATUS_FORBIDDEN = 403;
+  const STATUS_NOT_FOUND = 404;
+  const STATUS_NOT_ACCEPTABLE = 406;
+  const STATUS_INTERNAL_SERVER_ERROR = 500;
+  const STATUS_SERVICE_UNAVAILABLE = 503;
+
   /**
    * Colors for rooms/message
    */
@@ -109,5 +121,13 @@ class Hipchat {
     return $response;
   }
 
-}
+  private function sanitize_curl_parameter ($value) {
 
+    if ((strlen($value) > 0) && ($value[0] === "@")) {
+      return substr_replace($value, '&#64;', 0, 1);
+    }
+
+    return $value;
+  }
+
+}

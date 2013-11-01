@@ -12,15 +12,15 @@ include 'src/Hipchat.php';
 
 // GLOBAL SETTINGS
 $settings = [
-	'repo' => 'git@github.com:sortex/cms.git',
-	'var'  => '/tmp/repo-cms',
+	'repo' => 'git@github.com:sortex/detect.git',
+	'var'  => '.cache/repo-cms',
 	'hipchat' => [
 		'token' => '',
 		'from'  => 'Bob',
 	]
 ];
 
-$branches = [ 'develop', 'feature/core' ];
+$branches = [ 'develop', 'adam' ];
 
 // PARSE REQUEST
 try {
@@ -41,19 +41,28 @@ $subject_branch = $payload->ref;
 // SETUP
 if ( ! is_dir($settings['var']))
 {
-	$git->execute('clone '.escapeshellcmd($settings['repo']).' '.escapeshellcmd($settings['var']));
+//	$debug = 'clone '.escapeshellcmd($settings['repo']).' '.escapeshellcmd($settings['var']);
+
+//	file_put_contents('.logs/git.log', $debug, FILE_APPEND);
+
+//	$git->execute('clone '.escapeshellcmd($settings['repo']).' '.escapeshellcmd($settings['var']));
 }
 
+$failures = [];
 foreach ($branches as $branch)
 {
-	$git->execute('checkout '.$branch);
+	$branch_parts = explode('/', $branch);
+	$branch = end($branch_parts);
+
+	$git->execute('branch -D '.$branch);
+	$git->execute('checkout -b '.$branch.' origin/'.$branch);
 
 	try
 	{
 		$status = $git->execute('pull origin --ff-only '.escapeshellcmd($subject_branch));
 	}
 	catch (Exception $e)
-	{                                                             A
+	{
 		$failures[] = $branch;
 	}
 
@@ -64,15 +73,18 @@ if ($failures)
 {
 	// There could be multiple commits with multiple authors
 	$ops = [];
-	foreach ($request->commits as $commit)
+	$commit_msgs = [];
+	foreach ($payload->commits as $commit)
 	{
 		$ops[] = $commit->author->name;
+		$commit_msgs[] = $commit->message;
 	}
-	$msg = implode(', ', $ops).' - Your lastest commit is conflicting with the following branches: '.implode(', ', $failures);
+	$msg = implode(', ', $ops).' - Your lastest commit `'.implode(', ', $commit_msgs).'` are conflicting with the following branches: '.implode(', ', $failures);
 
 	$chat = new Hipchat($settings['hipchat']['token']);
-	$chat->message(
-		'CMS', $settings['hipchat']['from'], 
+	$chat->message_room(
+		'CEOs',
+		$settings['hipchat']['from'], 
 		$msg, 
 		TRUE, 
 		Hipchat::COLOR_RED
