@@ -15,12 +15,12 @@ $settings = [
 	'repo' => 'git@github.com:sortex/detect.git',
 	'var'  => '.cache/repo-cms',
 	'hipchat' => [
-		'token' => '',
+		'token' => '08b766d5c5e8d2340f3910aa4f770d',
 		'from'  => 'Bob',
 	]
 ];
 
-$branches = [ 'develop', 'adam' ];
+$branches = [ 'develop', 'adam', 'rafi' ];
 
 // PARSE REQUEST
 try {
@@ -48,21 +48,31 @@ if ( ! is_dir($settings['var']))
 //	$git->execute('clone '.escapeshellcmd($settings['repo']).' '.escapeshellcmd($settings['var']));
 }
 
+$git->execute('fetch --prune');
+
 $failures = [];
 foreach ($branches as $branch)
 {
 	$branch_parts = explode('/', $branch);
 	$branch = end($branch_parts);
 
-	$git->execute('branch -D '.$branch);
+	try
+	{
+		$git->execute('branch -D '.$branch);
+	}
+	catch (Exception $e)
+	{
+	}
+
 	$git->execute('checkout -b '.$branch.' origin/'.$branch);
 
 	try
 	{
-		$status = $git->execute('pull origin --ff-only '.escapeshellcmd($subject_branch));
+		$status = $git->execute('pull --ff-only origin '.escapeshellcmd($subject_branch));
 	}
 	catch (Exception $e)
 	{
+		file_put_contents('.logs/git.log', $e->getMessage(), FILE_APPEND);
 		$failures[] = $branch;
 	}
 
@@ -79,7 +89,9 @@ if ($failures)
 		$ops[] = $commit->author->name;
 		$commit_msgs[] = $commit->message;
 	}
-	$msg = implode(', ', $ops).' - Your lastest commit `'.implode(', ', $commit_msgs).'` are conflicting with the following branches: '.implode(', ', $failures);
+
+	$ops = array_unique($ops);
+	$msg = '<strong>'.implode(', ', $ops).'</strong> - Your latest commit `<strong>'.implode(', ', $commit_msgs).'</strong>` is conflicting with the following branches: <strong>'.implode(', ', $failures).'</strong>';
 
 	$chat = new Hipchat($settings['hipchat']['token']);
 	$chat->message_room(
