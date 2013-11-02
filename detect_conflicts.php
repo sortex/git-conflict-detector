@@ -20,8 +20,6 @@ $settings = [
 	]
 ];
 
-$branches = [ 'develop', 'adam', 'rafi' ];
-
 // PARSE REQUEST
 try {
 	$payload = json_decode($_REQUEST['payload']);
@@ -35,47 +33,65 @@ catch (Exception $e)
 // INIT
 $git = new Git($settings['var']);
 
-// Not sure if 'refs/heads/master' if ok here or i need to explode
+// Make sure to chop down 'refs/heads/'
 $subject_branch = $payload->ref;
+$branch_parts = explode('/', $subject_branch);
+array_shift($branch_parts);
+array_shift($branch_parts);
+$subject_branch = implode('/', $branch_parts);
 
 // SETUP
 if ( ! is_dir($settings['var']))
 {
-//	$debug = 'clone '.escapeshellcmd($settings['repo']).' '.escapeshellcmd($settings['var']);
-
-//	file_put_contents('.logs/git.log', $debug, FILE_APPEND);
-
-//	$git->execute('clone '.escapeshellcmd($settings['repo']).' '.escapeshellcmd($settings['var']));
+	file_put_contents('.logs/git.log', 'Cmd: git clone '.$settings['repo'].' '.$settings['var']."\n", FILE_APPEND);
+	$git->execute('clone '.escapeshellcmd($settings['repo']).' '.escapeshellcmd($settings['var']));
+} else {
+	file_put_contents('.logs/git.log', "Cmd: git fetch --prune\n", FILE_APPEND);
+	$git->execute('fetch --prune');
 }
 
-$git->execute('fetch --prune');
+// Detect remote branches
+$branches = $git->execute('for-each-ref refs/remotes/ --format=\'%(refname:short)\'');
+$branches = explode("\n", $branches);
+file_put_contents('.logs/git.log', "\nBranches:".implode(', ', $branches)."\n", FILE_APPEND);
 
 $failures = [];
 foreach ($branches as $branch)
 {
+	// Pull out remote name from branch ref
 	$branch_parts = explode('/', $branch);
-	$branch = end($branch_parts);
+	$remote_name  = array_shift($branch_parts);
+	$branch       = implode('/', $branch_parts);
+	
+
+	if (empty($branch) || $branch === 'HEAD') continue;
+	
+	file_put_contents('.logs/git.log', "\nBRANCH: $branch REMOTE: $remote_name/$branch\n", FILE_APPEND);
 
 	try
 	{
-		$git->execute('branch -D '.$branch);
+		// Clean previous local branch if exists
+		file_put_contents('.logs/git.log', "Cmd: git branch -D $branch\n", FILE_APPEND);
+		$git->execute("branch -D $branch");
 	}
 	catch (Exception $e)
 	{
 	}
 
-	$git->execute('checkout -b '.$branch.' origin/'.$branch);
+	file_put_contents('.logs/git.log', "Cmd: git checkout -b $branch $remote_name/$branch\n", FILE_APPEND);
+	$git->execute("checkout -b $branch $remote_name/$branch");
 
 	try
 	{
+		file_put_contents('.logs/git.log', 'Cmd: git pull --ff-only origin '.escapeshellcmd($subject_branch)."\n", FILE_APPEND);
 		$status = $git->execute('pull --ff-only origin '.escapeshellcmd($subject_branch));
 	}
 	catch (Exception $e)
 	{
-		file_put_contents('.logs/git.log', $e->getMessage(), FILE_APPEND);
 		$failures[] = $branch;
 	}
 
+	file_put_contents('.logs/git.log', 'reset --hard origin/develop'."\n", FILE_APPEND);
 	$git->execute('reset --hard origin/develop');
 }
 
