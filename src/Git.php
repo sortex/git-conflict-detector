@@ -30,8 +30,6 @@ class Git {
                         fclose($pipe);
                 }
 
-	file_put_contents('.logs/git.log', $stderr, FILE_APPEND);
-
                 $status = trim(proc_close($resource));
                 if ($status) throw new Exception($stderr);
 

@@ -10,15 +10,6 @@
 include 'src/Git.php';
 include 'src/Hipchat.php';
 
-// GLOBAL SETTINGS
-$settings = [
-	'var'  => '.cache/',
-	'hipchat' => [
-		'token' => '08b766d5c5e8d2340f3910aa4f770d',
-		'from'  => 'Bob',
-	]
-];
-
 file_put_contents('.logs/git.log', "REQUEST PAYLOAD: \n".$_REQUEST['payload']."\n", FILE_APPEND);
 
 // PARSE REQUEST
@@ -33,10 +24,12 @@ catch (Exception $e)
 
 // INIT
 $room_id  = $_GET['room'];
+$token    = $_GET['t'];
+$bot_name = $_GET['from'];
 $repo_url = 'git@github.com:'.$payload->repository->owner->name.'/'.$payload->repository->name.'.git';
-$repo_dir = $settings['var'].$payload->repository->name;
+$repo_dir = '.cache/'.$payload->repository->name;
 $git      = new Git($repo_dir);
-$chat     = new Hipchat($settings['hipchat']['token']);
+$chat     = new Hipchat($token);
 
 // Make sure to chop down 'refs/heads/'
 $subject_branch = $payload->ref;
@@ -63,6 +56,13 @@ $branches = $git->execute('for-each-ref refs/remotes/ --format=\'%(refname:short
 $branches = explode("\n", $branches);
 file_put_contents('.logs/git.log', "\nBranches:".implode(', ', $branches)."\n", FILE_APPEND);
 
+// Should we ignore certain branches?
+$ignore = array();
+if (isset($_GET['ignore']))
+{
+	$ignore = explode(',', $_GET['ignore']);
+}
+
 $failures = [];
 foreach ($branches as $branch)
 {
@@ -70,9 +70,15 @@ foreach ($branches as $branch)
 	$branch_parts = explode('/', $branch);
 	$remote_name  = array_shift($branch_parts);
 	$branch       = implode('/', $branch_parts);
-	
 
+	// Skip HEAD and empty strings
 	if (empty($branch) || $branch === 'HEAD') continue;
+
+	// Skip subject branch
+	if ($branch == $subject_branch) continue;
+
+	// Skip blacklisted branches
+	if (in_array($branch, $ignore)) continue;
 	
 	file_put_contents('.logs/git.log', "\nBRANCH: $branch REMOTE: $remote_name/$branch\n", FILE_APPEND);
 
@@ -117,16 +123,9 @@ if ($failures)
 	$ops = array_unique($ops);
 	$msg = '<strong>'.implode(', ', $ops).'</strong> - Your latest commit `<strong>'.implode(', ', $commit_msgs).'</strong>` is conflicting with the following branches: <strong>'.implode(', ', $failures).'</strong>';
 
-	$chat->message_room(
-		$room_id,
-		$settings['hipchat']['from'], 
-		$msg, 
-		TRUE, 
-		Hipchat::COLOR_RED
-	);
+	$chat->message_room($room_id, $bot_name, $msg, TRUE, Hipchat::COLOR_RED);
 }
 
 
 // The end.
-
 
