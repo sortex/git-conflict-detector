@@ -13,12 +13,14 @@ include 'src/Hipchat.php';
 // GLOBAL SETTINGS
 $settings = [
 	'repo' => 'git@github.com:sortex/detect.git',
-	'var'  => '.cache/repo-cms',
+	'var'  => '.cache/',
 	'hipchat' => [
 		'token' => '08b766d5c5e8d2340f3910aa4f770d',
 		'from'  => 'Bob',
 	]
 ];
+
+file_put_contents('.logs/git.log', "REQUEST PAYLOAD: \n".$_REQUEST['payload']."\n", FILE_APPEND);
 
 // PARSE REQUEST
 try {
@@ -31,7 +33,9 @@ catch (Exception $e)
 }
 
 // INIT
-$git = new Git($settings['var']);
+$repo_dir = $settings['var'].$payload->repository->name;
+$git  = new Git($repo_dir);
+$chat = new Hipchat($settings['hipchat']['token']);
 
 // Make sure to chop down 'refs/heads/'
 $subject_branch = $payload->ref;
@@ -40,11 +44,14 @@ array_shift($branch_parts);
 array_shift($branch_parts);
 $subject_branch = implode('/', $branch_parts);
 
+// Do not process deletions
+if ($payload->deleted) die();
+
 // SETUP
-if ( ! is_dir($settings['var']))
+if ( ! is_dir($repo_dir))
 {
-	file_put_contents('.logs/git.log', 'Cmd: git clone '.$settings['repo'].' '.$settings['var']."\n", FILE_APPEND);
-	$git->execute('clone '.escapeshellcmd($settings['repo']).' '.escapeshellcmd($settings['var']));
+	file_put_contents('.logs/git.log', 'Cmd: git clone '.$settings['repo'].' '.$repo_dir."\n", FILE_APPEND);
+	$git->execute('clone '.escapeshellcmd($settings['repo']).' '.escapeshellcmd($repo_dir));
 } else {
 	file_put_contents('.logs/git.log', "Cmd: git fetch --prune\n", FILE_APPEND);
 	$git->execute('fetch --prune');
@@ -109,7 +116,6 @@ if ($failures)
 	$ops = array_unique($ops);
 	$msg = '<strong>'.implode(', ', $ops).'</strong> - Your latest commit `<strong>'.implode(', ', $commit_msgs).'</strong>` is conflicting with the following branches: <strong>'.implode(', ', $failures).'</strong>';
 
-	$chat = new Hipchat($settings['hipchat']['token']);
 	$chat->message_room(
 		'CEOs',
 		$settings['hipchat']['from'], 
