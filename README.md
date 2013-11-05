@@ -1,7 +1,7 @@
 # Auto-conflict detector
 ----
 > (c) 2013 Sortex Ltd., sortex.co.il
-> github.com/sortex/git-conflict-notifier.git
+> github.com/sortex/git-conflict-detector
 
 Runs as a webpage that listens to GitHub hook requests and alerts an HipChat room if a conflict has detected with other branches in the repository.
 
