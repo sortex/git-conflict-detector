@@ -97,8 +97,8 @@ foreach ($branches as $branch)
 
 	try
 	{
-		file_put_contents('.logs/git.log', 'Cmd: git pull --ff-only origin '.escapeshellcmd($subject_branch)."\n", FILE_APPEND);
-		$status = $git->execute('pull --ff-only origin '.escapeshellcmd($subject_branch));
+		file_put_contents('.logs/git.log', 'Cmd: git pull origin '.escapeshellcmd($subject_branch)."\n", FILE_APPEND);
+		$status = $git->execute('pull origin '.escapeshellcmd($subject_branch));
 	}
 	catch (Exception $e)
 	{
@@ -119,9 +119,12 @@ if ($failures)
 		$ops[] = $commit->author->name;
 		$commit_msgs[] = $commit->message;
 	}
+	$ops     = array_unique($ops);
+	$pusher  = $payload->pusher->name;
+	$commits = implode(', ', $commit_msgs);
+	$commits = strlen($commits) > 30 ? substr($commits, 0, 29).'...' : $commits;
 
-	$ops = array_unique($ops);
-	$msg = '<strong>'.implode(', ', $ops).'</strong> - Your latest commit `<strong>'.implode(', ', $commit_msgs).'</strong>` is conflicting with the following branches: <strong>'.implode(', ', $failures).'</strong>';
+	$msg = '<strong>'.$pusher.'</strong> - Your latest pushes `<strong>'.$commits.'</strong>` is conflicting with the following branches: <strong>'.implode(', ', $failures).'</strong>';
 
 	$chat->message_room($room_id, $bot_name, $msg, TRUE, Hipchat::COLOR_RED);
 }
