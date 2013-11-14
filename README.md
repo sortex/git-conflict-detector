@@ -9,16 +9,21 @@ Runs as a webpage that listens to GitHub hook requests and alerts an HipChat roo
 
   - Setup a webserver vhost
   - Clone files into vhost root dir
-  - Change webserver's user from `/bin/nologin` to `/bin/bash` (!) Refer to "Known Issues"
-  - Login into the webserver's user and generate an SSH key pair
-  - Add the public key into the repository's GitHub "Deploy Keys"
-  - Make sure `.logs` and `.cache` dirs have write permission for webserver
+  - Generate an SSH key pair in the webserver's user dir, eg. /var/www/.ssh (See section below)
+  - Add the public key you generated into the repository's GitHub "Deploy Keys"
+  - Make sure `.logs` and `.cache` dirs have write permission for webserver's user
   - Edit `settings.php` to reflect your needs
 
-## Known Issues
+## GitHub authentication
 
   - For GitHub authentication through `git` command-line this script requires the webserver's user having an SSH key created in `.ssh`
-  - Changing the webserver's user to `/bin/bash` can have certain security implications, make sure you understand this requirement
+  - An easy way to test:
+    - Temporarily change webserver's user shell from `/bin/nologin` to `/bin/bash`, if needed
+    - Login as webserver's user
+    - Generate key pair: `ssh-keygen -t rsa`
+    - `ssh git@github.com`
+    - You should see: "Hi foo! You've successfully authenticated"
+    Note: Changing the webserver's user to `/bin/bash` can have certain security implications, make sure you know what you're doing
 
 ## License
 
